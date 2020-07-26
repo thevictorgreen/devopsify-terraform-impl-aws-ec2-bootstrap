@@ -27,7 +27,7 @@ variable "centos_machine_azs" {
   description = "availability_zones for each host"
   type = map(string)
   default = {
-    "centos0000" = "us-east-1a"
+    "centos000" = "us-east-1a"
   }
 }
 
@@ -136,7 +136,7 @@ resource "aws_eip" "centos-machine-eip" {
 
 
 resource "aws_route53_record" "centos-machine-public-record" {
-  for_each = toset(var.centos_machine_names)}
+  for_each = toset(var.centos_machine_names)
   zone_id  = data.aws_route53_zone.dns_public_zone.zone_id
   name     = "${each.value}.AAAAA.${data.aws_route53_zone.dns_public_zone.name}"
   type     = "A"
