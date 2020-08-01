@@ -5,6 +5,7 @@ variable "centos_machine_names" {
   default = ["centos000"]
 }
 
+
 variable "centos_machine_subnets" {
   description = "Subnet where each host is to be provisioned"
   type = map(string)
@@ -13,16 +14,7 @@ variable "centos_machine_subnets" {
   }
 }
 
-# THIS SECTION IS OPTIONAL
-variable "centos_machine_ips" {
-  description = "Static Private IP Address for each host. Must be valid for subnet"
-  type = map(string)
-  default = {
-    "centos000" = "XXX.XXX.XXX.XXX"
-  }
-}
 
-# THIS SECTION ONLY REQUIRED IF ADDING EXTERNAL STORAGE
 variable "centos_machine_azs" {
   description = "availability_zones for each host"
   type = map(string)
@@ -31,9 +23,11 @@ variable "centos_machine_azs" {
   }
 }
 
+
 variable "centos_machine_ansible_group" {
   default = "centos"
 }
+
 
 # centos MACHINE
 resource "aws_instance" "centos-machine" {
@@ -43,9 +37,6 @@ resource "aws_instance" "centos-machine" {
 
   key_name      = var.keypairs["QQQQQ"]
   subnet_id     = var.subnets[ var.centos_machine_subnets[ each.value ] ]
-
-  # COMMENT THIS SECTION FOR AUTO-ASSIGNED IP ADDRESS
-  #private_ip    = var.centos_machine_ips[ each.value ]
 
   vpc_security_group_ids = [
     var.secgroups["AAAAA-useast1-public-security-group"]
@@ -57,7 +48,7 @@ resource "aws_instance" "centos-machine" {
   }
   connection {
     private_key = file(var.private_key)
-    user        = var.ansible_user["centos_7"]
+    user        = var.ansible_user["centos"]
     host        = self.public_ip
   }
 
@@ -91,9 +82,7 @@ resource "aws_route53_record" "centos-machine-private-record" {
   type     = "A"
   ttl      = "300"
 
-  # SWAP THESE TWO SECTIONS IF USING AUTO-ASSIGNED IP ADDRESSES
   records  = ["${aws_instance.centos-machine[each.value].private_ip}"]
-  #records = ["${var.centos_machine_ips[ each.value ]}"]
 }
 
 
@@ -101,22 +90,20 @@ resource "aws_route53_record" "centos-machine-reverse-record" {
   for_each = toset(var.centos_machine_names)
   zone_id = data.aws_route53_zone.dns_reverse_zone.zone_id
 
-  # SWAP THESE TWO SECTIONS IF USING AUTO-ASSIGNED IP ADDRESSES
   name    = "${element(split(".", aws_instance.centos-machine[each.value].private_ip),3)}.${element(split(".", aws_instance.centos-machine[each.value].private_ip),2)}.${data.aws_route53_zone.dns_reverse_zone.name}"
-  #name    = "${element(split(".", var.centos_machine_ips[ each.value ]),3)}.${element(split(".", var.centos_machine_ips[ each.value ]),2)}.${data.aws_route53_zone.dns_reverse_zone.name}"
   records = ["${each.value}.${data.aws_route53_zone.dns_private_zone.name}"]
   type    = "PTR"
   ttl     = "300"
 }
 
-//UNCOMMENT THIS SECTION TO ADD ADDITIONAL HARD DRIVES TO INSTANCE
-/*
+
 resource "aws_ebs_volume" "centos-volume1" {
   for_each = toset(var.centos_machine_names)
   availability_zone = var.centos_machine_azs[ each.value ]
   type = "gp2"
-  size = 200
+  size = 80
 }
+
 
 resource "aws_volume_attachment" "centos-volume1-attachment" {
   for_each    = toset(var.centos_machine_names)
@@ -124,10 +111,8 @@ resource "aws_volume_attachment" "centos-volume1-attachment" {
   instance_id = aws_instance.centos-machine[ each.value ].id
   volume_id   = aws_ebs_volume.centos-volume1[ each.value ].id
 }
-*/
 
 
-//UNCOMMENT THIS SECTION TO EXPOSE THIS INSTANCE PUBLICLY
 resource "aws_eip" "centos-machine-eip" {
   for_each = toset(var.centos_machine_names)
   instance = aws_instance.centos-machine[each.value].id
